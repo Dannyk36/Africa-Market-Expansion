@@ -158,7 +158,11 @@ export default function Dashboard() {
                       <button
                         key={country.name}
                         onClick={() => setSelectedCountry(country.name)}
-                        className="w-full text-left p-3 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 transition-colors"
+                        className={`w-full text-left p-3 rounded-lg transition-colors ${
+                          selectedCountry === country.name
+                            ? "bg-amber-500/30 border-2 border-amber-400"
+                            : "bg-slate-700/30 hover:bg-slate-700/50 border-2 border-transparent"
+                        }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -183,7 +187,11 @@ export default function Dashboard() {
                       <button
                         key={country.name}
                         onClick={() => setSelectedCountry(country.name)}
-                        className="w-full text-left p-3 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 transition-colors"
+                        className={`w-full text-left p-3 rounded-lg transition-colors ${
+                          selectedCountry === country.name
+                            ? "bg-amber-500/30 border-2 border-amber-400"
+                            : "bg-slate-700/30 hover:bg-slate-700/50 border-2 border-transparent"
+                        }`}
                       >
                         <div className="flex items-center justify-between">
                           <div>
@@ -220,7 +228,11 @@ export default function Dashboard() {
                           <tr
                             key={country.name}
                             onClick={() => setSelectedCountry(country.name)}
-                            className="border-b border-slate-700/50 hover:bg-slate-700/30 transition-colors cursor-pointer"
+                            className={`border-b border-slate-700/50 transition-colors cursor-pointer ${
+                              selectedCountry === country.name
+                                ? "bg-amber-500/20 hover:bg-amber-500/30"
+                                : "hover:bg-slate-700/30"
+                            }`}
                           >
                             <td className="py-3 px-4 text-slate-300 font-semibold">#{country.rank}</td>
                             <td className="py-3 px-4 text-white font-medium">{country.name}</td>

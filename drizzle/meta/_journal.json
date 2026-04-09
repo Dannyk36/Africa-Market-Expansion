@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1775757858111,
+      "tag": "0000_youthful_triathlon",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1775757945102,
+      "tag": "0001_icy_franklin_storm",
+      "breakpoints": true
+    }
+  ]
+}

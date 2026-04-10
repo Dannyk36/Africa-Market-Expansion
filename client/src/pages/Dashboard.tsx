@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,37 @@ import { Badge } from "@/components/ui/badge";
 import { countryScores, regions, regionColors, getScoreColor } from "@/lib/marketData";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 import { TrendingUp, TrendingDown, Globe, Target } from "lucide-react";
+import AIChat from "@/components/AIChat";
+import { MarketAtlasPanel } from "@/components/MarketAtlasPanel";
+import { OnboardingPanel } from "@/components/OnboardingPanel";
+import { SettingsPanel } from "@/components/SettingsPanel";
+import { CountryIntelligencePanel } from "@/components/CountryIntelligencePanel";
+import { TrustCenterPanel } from "@/components/TrustCenterPanel";
+import { WatchlistPanel } from "@/components/WatchlistPanel";
+
+type DashboardTab = "start" | "rankings" | "analysis" | "atlas" | "advisor" | "watchlist" | "trust" | "settings";
+const WATCHLIST_STORAGE_KEY = "africa-market-watchlist-v1";
 
 export default function Dashboard() {
+  const [activeTab, setActiveTab] = useState<DashboardTab>("start");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [watchlist, setWatchlist] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    const stored = window.localStorage.getItem(WATCHLIST_STORAGE_KEY);
+    if (!stored) return [];
+    try {
+      return JSON.parse(stored) as string[];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist));
+  }, [watchlist]);
 
   const filteredCountries = useMemo(() => {
     return countryScores.filter((country) => {
@@ -44,6 +70,27 @@ export default function Dashboard() {
         { category: "Threats", value: selectedCountryData.threats },
       ]
     : [];
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as DashboardTab);
+  };
+
+  const openCountryIntelligence = (countryName: string) => {
+    setSelectedCountry(countryName);
+    setActiveTab("analysis");
+  };
+
+  const toggleWatchlist = (countryName: string) => {
+    setWatchlist(prev =>
+      prev.includes(countryName)
+        ? prev.filter(item => item !== countryName)
+        : [...prev, countryName]
+    );
+  };
+
+  const removeFromWatchlist = (countryName: string) => {
+    setWatchlist(prev => prev.filter(item => item !== countryName));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
@@ -107,12 +154,21 @@ export default function Dashboard() {
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs defaultValue="rankings" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="bg-slate-800/50 border border-slate-700">
+            <TabsTrigger value="start">Start Here</TabsTrigger>
             <TabsTrigger value="rankings">Rankings</TabsTrigger>
             <TabsTrigger value="analysis">Analysis</TabsTrigger>
-            <TabsTrigger value="comparison">Comparison</TabsTrigger>
+            <TabsTrigger value="atlas">Market Atlas</TabsTrigger>
+            <TabsTrigger value="advisor">AI Advisor</TabsTrigger>
+            <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
+            <TabsTrigger value="trust">Trust Center</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="start" className="space-y-6">
+            <OnboardingPanel goToTab={setActiveTab} />
+          </TabsContent>
 
           {/* Rankings Tab */}
           <TabsContent value="rankings" className="space-y-6">
@@ -157,7 +213,7 @@ export default function Dashboard() {
                     {topMarkets.map((country) => (
                       <button
                         key={country.name}
-                        onClick={() => setSelectedCountry(country.name)}
+                        onClick={() => openCountryIntelligence(country.name)}
                         className={`w-full text-left p-3 rounded-lg transition-colors ${
                           selectedCountry === country.name
                             ? "bg-amber-500/30 border-2 border-amber-400"
@@ -186,7 +242,7 @@ export default function Dashboard() {
                     {bottomMarkets.map((country) => (
                       <button
                         key={country.name}
-                        onClick={() => setSelectedCountry(country.name)}
+                        onClick={() => openCountryIntelligence(country.name)}
                         className={`w-full text-left p-3 rounded-lg transition-colors ${
                           selectedCountry === country.name
                             ? "bg-amber-500/30 border-2 border-amber-400"
@@ -269,116 +325,18 @@ export default function Dashboard() {
 
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="space-y-6">
-            {selectedCountryData ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Country Details */}
-                <Card className="bg-slate-800/50 border-slate-700 p-6">
-                  <h3 className="text-2xl font-bold text-white mb-4">{selectedCountryData.name}</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-slate-400 text-sm">Region</p>
-                      <Badge
-                        variant="outline"
-                        className="mt-1"
-                        style={{
-                          backgroundColor: regionColors[selectedCountryData.region] + "20",
-                          borderColor: regionColors[selectedCountryData.region],
-                          color: regionColors[selectedCountryData.region],
-                        }}
-                      >
-                        {selectedCountryData.region}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-sm">Overall Score</p>
-                      <div
-                        className="mt-2 inline-block px-4 py-2 rounded-lg font-bold text-white text-lg"
-                        style={{ backgroundColor: getScoreColor(selectedCountryData.score) }}
-                      >
-                        {selectedCountryData.score.toFixed(1)} / 100
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-slate-400 text-sm">Global Rank</p>
-                      <p className="text-2xl font-bold text-white mt-1">#{selectedCountryData.rank} of 54</p>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* SWOT Radar Chart */}
-                <Card className="bg-slate-800/50 border-slate-700 p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">SWOT Analysis</h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid stroke="#475569" />
-                      <PolarAngleAxis dataKey="category" stroke="#94a3b8" />
-                      <PolarRadiusAxis stroke="#64748b" angle={90} domain={[0, 100]} />
-                      <Radar
-                        name="Score"
-                        dataKey="value"
-                        stroke="#fbbf24"
-                        fill="#fbbf24"
-                        fillOpacity={0.6}
-                      />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </Card>
-
-                {/* Detailed Metrics */}
-                <Card className="bg-slate-800/50 border-slate-700 p-6 lg:col-span-2">
-                  <h3 className="text-lg font-semibold text-white mb-4">Key Indicators</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div className="bg-slate-700/30 p-4 rounded-lg">
-                      <p className="text-slate-400 text-sm">GDP Growth</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        {selectedCountryData.gdpGrowth.toFixed(1)}%
-                      </p>
-                    </div>
-                    <div className="bg-slate-700/30 p-4 rounded-lg">
-                      <p className="text-slate-400 text-sm">Business Ready</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        {selectedCountryData.businessReady.toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="bg-slate-700/30 p-4 rounded-lg">
-                      <p className="text-slate-400 text-sm">ICT Development</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        {selectedCountryData.idi.toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="bg-slate-700/30 p-4 rounded-lg">
-                      <p className="text-slate-400 text-sm">Corruption Index</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        {selectedCountryData.corruption.toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="bg-slate-700/30 p-4 rounded-lg">
-                      <p className="text-slate-400 text-sm">Urbanization</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        {selectedCountryData.urbanization.toFixed(1)}%
-                      </p>
-                    </div>
-                    <div className="bg-slate-700/30 p-4 rounded-lg">
-                      <p className="text-slate-400 text-sm">Debt to GDP</p>
-                      <p className="text-xl font-bold text-white mt-1">
-                        {selectedCountryData.debtToGdp.toFixed(1)}%
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-            ) : (
-              <Card className="bg-slate-800/50 border-slate-700 p-12 text-center">
-                <p className="text-slate-400 text-lg">Select a country to view detailed analysis</p>
-              </Card>
-            )}
+            <CountryIntelligencePanel
+              country={selectedCountryData ?? null}
+              onSelectCountry={openCountryIntelligence}
+              isInWatchlist={selectedCountryData ? watchlist.includes(selectedCountryData.name) : false}
+              onToggleWatchlist={toggleWatchlist}
+            />
           </TabsContent>
 
-          {/* Comparison Tab */}
-          <TabsContent value="comparison" className="space-y-6">
+          <TabsContent value="atlas" className="space-y-6">
             <Card className="bg-slate-800/50 border-slate-700 p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Regional Comparison</h3>
-              <ResponsiveContainer width="100%" height={400}>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart
                   data={regions.map((region) => ({
                     region,
@@ -406,6 +364,33 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </Card>
+
+            <MarketAtlasPanel
+              selectedCountry={selectedCountry}
+              onInspectCountry={openCountryIntelligence}
+            />
+          </TabsContent>
+
+          <TabsContent value="advisor" className="space-y-6">
+            <div className="h-[720px]">
+              <AIChat />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="watchlist" className="space-y-6">
+            <WatchlistPanel
+              watchlist={watchlist}
+              onSelectCountry={openCountryIntelligence}
+              onRemoveCountry={removeFromWatchlist}
+            />
+          </TabsContent>
+
+          <TabsContent value="trust" className="space-y-6">
+            <TrustCenterPanel />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <SettingsPanel />
           </TabsContent>
         </Tabs>
       </div>

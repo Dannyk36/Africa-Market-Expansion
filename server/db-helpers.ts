@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc, isNull, or, gt } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   apiKeys,
@@ -9,6 +9,9 @@ import {
   companyProfiles,
   marketRecommendations,
   usageAnalytics,
+  sourceDocuments,
+  sourceConfigs,
+  insightEvents,
   InsertApiKey,
   InsertUserPreference,
   InsertQueryHistory,
@@ -17,6 +20,9 @@ import {
   InsertCompanyProfile,
   InsertMarketRecommendation,
   InsertUsageAnalytic,
+  InsertSourceDocument,
+  InsertSourceConfig,
+  InsertInsightEvent,
 } from "../drizzle/schema";
 import { encryptData, decryptData } from "./crypto";
 
@@ -65,6 +71,21 @@ export async function getUserApiKeys(userId: number) {
     ...k,
     encryptedKey: decryptData(k.encryptedKey),
   }));
+}
+
+export async function getPreferredApiKey(
+  userId: number,
+  provider?: InsertApiKey["provider"] | null
+) {
+  const keys = await getUserApiKeys(userId);
+  const activeKeys = keys.filter(key => key.isActive);
+
+  if (provider) {
+    const matching = activeKeys.find(key => key.provider === provider);
+    if (matching) return matching;
+  }
+
+  return activeKeys[0] ?? null;
 }
 
 export async function deleteApiKey(userId: number, keyId: number): Promise<void> {
@@ -258,4 +279,103 @@ export async function getUserUsageAnalytics(userId: number, daysBack = 30) {
     .select()
     .from(usageAnalytics)
     .where(and(eq(usageAnalytics.userId, userId)));
+}
+
+export async function createSourceDocument(document: InsertSourceDocument): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(sourceDocuments).values(document);
+  return (result as any).insertId as number;
+}
+
+export async function listSourceDocuments(limit = 50) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select()
+    .from(sourceDocuments)
+    .orderBy(desc(sourceDocuments.publishedAt), desc(sourceDocuments.createdAt))
+    .limit(limit);
+}
+
+export async function findLatestSourceDocumentByUrl(sourceUrl: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const results = await db
+    .select()
+    .from(sourceDocuments)
+    .where(eq(sourceDocuments.sourceUrl, sourceUrl))
+    .orderBy(desc(sourceDocuments.retrievedAt))
+    .limit(1);
+
+  return results[0] ?? null;
+}
+
+export async function createInsightEvent(event: InsertInsightEvent): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(insightEvents).values(event);
+  return (result as any).insertId as number;
+}
+
+export async function listRecentInsightEvents(limit = 50, country?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const now = new Date();
+  const filters = [
+    or(isNull(insightEvents.expiresAt), gt(insightEvents.expiresAt, now)),
+  ];
+
+  if (country) {
+    filters.push(eq(insightEvents.country, country));
+  }
+
+  return db
+    .select()
+    .from(insightEvents)
+    .where(and(...filters))
+    .orderBy(desc(insightEvents.effectiveDate), desc(insightEvents.createdAt))
+    .limit(limit);
+}
+
+export async function upsertSourceConfig(config: InsertSourceConfig) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(sourceConfigs).values(config).onDuplicateKeyUpdate({
+    set: {
+      sourceName: config.sourceName,
+      enabled: config.enabled,
+      intervalHours: config.intervalHours,
+      lastRunAt: config.lastRunAt ?? null,
+      nextRunAt: config.nextRunAt ?? null,
+      lastStatus: config.lastStatus,
+      lastMessage: config.lastMessage ?? null,
+    },
+  });
+}
+
+export async function listSourceConfigs() {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.select().from(sourceConfigs).orderBy(sourceConfigs.sourceName);
+}
+
+export async function getSourceConfig(sourceId: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const results = await db
+    .select()
+    .from(sourceConfigs)
+    .where(eq(sourceConfigs.sourceId, sourceId))
+    .limit(1);
+
+  return results[0] ?? null;
 }

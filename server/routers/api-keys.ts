@@ -14,7 +14,9 @@ export const apiKeysRouter = router({
       return keys.map((k) => ({
         id: k.id,
         provider: k.provider,
+        credentialType: k.credentialType,
         name: k.name,
+        baseUrl: k.baseUrl,
         isActive: k.isActive,
         lastUsed: k.lastUsed,
         createdAt: k.createdAt,
@@ -34,6 +36,7 @@ export const apiKeysRouter = router({
     .input(
       z.object({
         provider: z.enum(["openrouter", "openai", "anthropic", "cohere", "custom"]),
+        credentialType: z.enum(["api_key", "oauth_token", "entra_token"]).default("api_key"),
         name: z.string().min(1).max(255),
         apiKey: z.string().min(1),
         baseUrl: z.string().optional(), // For custom providers
@@ -43,8 +46,10 @@ export const apiKeysRouter = router({
       try {
         await addApiKey(ctx.user.id, {
           provider: input.provider,
+          credentialType: input.credentialType,
           name: input.name,
           encryptedKey: input.apiKey,
+          baseUrl: input.baseUrl,
           isActive: true,
         });
 
@@ -102,6 +107,7 @@ export const apiKeysRouter = router({
     .input(
       z.object({
         provider: z.enum(["openrouter", "openai", "anthropic", "cohere", "custom"]),
+        credentialType: z.enum(["api_key", "oauth_token", "entra_token"]).default("api_key"),
         apiKey: z.string(),
         baseUrl: z.string().optional(),
       })

@@ -32,8 +32,10 @@ export const apiKeys = mysqlTable("api_keys", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   provider: mysqlEnum("provider", ["openrouter", "openai", "anthropic", "cohere", "custom"]).notNull(),
+  credentialType: mysqlEnum("credential_type", ["api_key", "oauth_token", "entra_token"]).default("api_key").notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   encryptedKey: text("encrypted_key").notNull(),
+  baseUrl: varchar("base_url", { length: 512 }),
   isActive: boolean("is_active").default(true).notNull(),
   lastUsed: timestamp("last_used"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -197,3 +199,56 @@ export const scoringAdjustments = mysqlTable("scoring_adjustments", {
 
 export type ScoringAdjustment = typeof scoringAdjustments.$inferSelect;
 export type InsertScoringAdjustment = typeof scoringAdjustments.$inferInsert;
+
+export const sourceDocuments = mysqlTable("source_documents", {
+  id: int("id").autoincrement().primaryKey(),
+  sourceName: varchar("source_name", { length: 255 }).notNull(),
+  sourceType: mysqlEnum("source_type", ["official_release", "dataset", "policy_update", "trade_update", "news_brief"]).notNull(),
+  sourceUrl: varchar("source_url", { length: 1024 }).notNull(),
+  title: varchar("title", { length: 512 }).notNull(),
+  regionScope: varchar("region_scope", { length: 255 }),
+  countryCodes: json("country_codes").$type<string[]>(),
+  publishedAt: timestamp("published_at"),
+  retrievedAt: timestamp("retrieved_at").defaultNow().notNull(),
+  trustScore: decimal("trust_score", { precision: 4, scale: 2 }).default("1.00").notNull(),
+  rawText: text("raw_text").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SourceDocument = typeof sourceDocuments.$inferSelect;
+export type InsertSourceDocument = typeof sourceDocuments.$inferInsert;
+
+export const insightEvents = mysqlTable("insight_events", {
+  id: int("id").autoincrement().primaryKey(),
+  sourceDocumentId: int("source_document_id").references(() => sourceDocuments.id, { onDelete: "set null" }),
+  country: varchar("country", { length: 255 }).notNull(),
+  eventType: mysqlEnum("event_type", ["treaty", "trade_deal", "policy_change", "geopolitics", "market_signal", "infrastructure", "regulatory", "macro"]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  summary: text("summary").notNull(),
+  impactDirection: mysqlEnum("impact_direction", ["positive", "neutral", "negative", "mixed"]).default("mixed").notNull(),
+  impactScore: decimal("impact_score", { precision: 4, scale: 2 }).default("0.00").notNull(),
+  confidence: decimal("confidence", { precision: 4, scale: 2 }).default("0.50").notNull(),
+  effectiveDate: timestamp("effective_date"),
+  expiresAt: timestamp("expires_at"),
+  tags: json("tags").$type<string[]>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type InsightEvent = typeof insightEvents.$inferSelect;
+export type InsertInsightEvent = typeof insightEvents.$inferInsert;
+
+export const sourceConfigs = mysqlTable("source_configs", {
+  sourceId: varchar("source_id", { length: 128 }).primaryKey(),
+  sourceName: varchar("source_name", { length: 255 }).notNull(),
+  enabled: boolean("enabled").default(true).notNull(),
+  intervalHours: int("interval_hours").default(24).notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  lastStatus: mysqlEnum("last_status", ["idle", "success", "failed"]).default("idle").notNull(),
+  lastMessage: text("last_message"),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type SourceConfig = typeof sourceConfigs.$inferSelect;
+export type InsertSourceConfig = typeof sourceConfigs.$inferInsert;

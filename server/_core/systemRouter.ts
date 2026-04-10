@@ -1,8 +1,19 @@
 import { z } from "zod";
+import { getDb } from "../db";
+import { ENV } from "./env";
 import { notifyOwner } from "./notification";
 import { adminProcedure, publicProcedure, router } from "./trpc";
 
 export const systemRouter = router({
+  status: publicProcedure.query(async () => {
+    const db = await getDb();
+    return {
+      databaseConfigured: Boolean(ENV.databaseUrl),
+      databaseAvailable: Boolean(db),
+      oauthConfigured: Boolean(ENV.oAuthServerUrl),
+    } as const;
+  }),
+
   health: publicProcedure
     .input(
       z.object({

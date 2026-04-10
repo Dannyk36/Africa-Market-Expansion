@@ -6,6 +6,8 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { refreshDueTrustedSources } from "../insights-engine";
+import { ENV } from "./env";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -59,6 +61,25 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+  });
+
+  const refreshIntervalMs = Math.max(5, ENV.trustedDataRefreshMinutes) * 60 * 1000;
+  setInterval(() => {
+    refreshDueTrustedSources().catch(error => {
+      if (error instanceof Error && error.message === "Database not available") {
+        console.warn("[TrustedData] Scheduled refresh skipped: database not available");
+        return;
+      }
+      console.error("[TrustedData] Scheduled refresh failed", error);
+    });
+  }, refreshIntervalMs);
+
+  refreshDueTrustedSources().catch(error => {
+    if (error instanceof Error && error.message === "Database not available") {
+      console.warn("[TrustedData] Initial refresh skipped: database not available");
+      return;
+    }
+    console.error("[TrustedData] Initial refresh check failed", error);
   });
 }
 
